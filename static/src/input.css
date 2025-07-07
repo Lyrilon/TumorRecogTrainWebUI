@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+.capsule-btn {
+    @apply py-2.5 px-7 rounded-full font-semibold shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:shadow-lg;
+
+}
+
+
+.capsule-btn-primary {
+    @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500;
+}
+
+
+.capsule-btn-secondary {
+    @apply bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 hover:border-slate-400 focus:ring-slate-400;
+}
+
+
+.capsule-btn-danger {
+    @apply bg-rose-500 text-white hover:bg-rose-600 focus:ring-rose-500;
+}
+
+
+.input-field {
+    @apply w-96 h-9 pl-2 pr-16 py-1 text-sm bg-gray-50 hover:bg-white transition-all duration-300 ease-in-out text-gray-800 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500;
+
+}
+
+
+.icon-input-container {
+    @apply relative flex items-center;
+}
+
+
+.icon-input-container .icon {
+
+    @apply absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none;
+
+}
+
+
+.icon-input-container .input-field {
+    @apply pl-11;
+
+}
