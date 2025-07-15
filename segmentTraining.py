@@ -306,43 +306,53 @@ class SegmentationTrainingApp:
                 self.computeBatchLoss(idx, batch, dl.batch_size, metrics_g)
         return metrics_g.to("cpu")
 
-    def computeBatchLoss(self, idx, batch, bs, metrics_g, thresh=0.5):
-        inp, label, _, _ = batch
-        inp_g = inp.to(self.device, non_blocking=True)
-        # 强制将标签转为 float，避免 bool 运算错误
-        label_g = label.to(self.device, non_blocking=True).float()
+    def computeBatchLoss(
+        self, batch_ndx, batch_tup, batch_size, metrics_g, classificationThreshold=0.5
+    ):
+        input_t, label_t, series_list, _slice_ndx_list = batch_tup
 
-        if self.augmentation_model and self.segmentation_model.training:
-            inp_g, label_g = self.augmentation_model(inp_g, label_g)
-            # SegmentationAugmentation returns a boolean mask, convert back to float tensor
-            label_g = label_g.to(self.device, non_blocking=True).float()
+        input_g = input_t.to(self.device, non_blocking=True)
+        label_g = label_t.to(self.device, non_blocking=True)
 
-        pred = self.segmentation_model(inp_g)
-        dice = self.diceLoss(pred, label_g)
-        fn_loss = self.diceLoss(pred * label_g, label_g)
+        if self.segmentation_model.training and self.augmentation_dict:
+            input_g, label_g = self.augmentation_model(input_g, label_g)
 
-        start = idx * bs
-        end = start + inp.size(0)
+        prediction_g = self.segmentation_model(input_g)
+
+        diceLoss_g = self.diceLoss(prediction_g, label_g)
+        fnLoss_g = self.diceLoss(prediction_g * label_g, label_g)
+
+        start_ndx = batch_ndx * batch_size
+        end_ndx = start_ndx + input_t.size(0)
+
         with torch.no_grad():
-            pb = (pred[:, 0:1] > thresh).float()
-            tp = (pb * label_g).sum(dim=[1, 2, 3])
-            fn = ((1 - pb) * label_g).sum(dim=[1, 2, 3])
-            fp = (pb * (1 - label_g)).sum(dim=[1, 2, 3])
-            tn = ((1 - pb) * (1 - label_g)).sum(dim=[1, 2, 3])
+            predictionBool_g = (prediction_g[:, 0:1] > classificationThreshold).to(
+                torch.float32
+            )
 
-            metrics_g[METRICS_LOSS_NDX, start:end] = dice
-            metrics_g[METRICS_TP_NDX, start:end] = tp
-            metrics_g[METRICS_FN_NDX, start:end] = fn
-            metrics_g[METRICS_FP_NDX, start:end] = fp
-            metrics_g[METRICS_TN_NDX, start:end] = tn
+            tp = (predictionBool_g * label_g).sum(dim=[1, 2, 3])
+            fn = ((1 - predictionBool_g) * label_g).sum(dim=[1, 2, 3])
+            fp = (predictionBool_g * (~label_g)).sum(dim=[1, 2, 3])
+            tn = ((1 - predictionBool_g) * (~label_g)).sum(dim=[1, 2, 3])
 
-        return dice.mean() + fn_loss.mean() * 8
+            metrics_g[METRICS_LOSS_NDX, start_ndx:end_ndx] = diceLoss_g
+            metrics_g[METRICS_TP_NDX, start_ndx:end_ndx] = tp
+            metrics_g[METRICS_FN_NDX, start_ndx:end_ndx] = fn
+            metrics_g[METRICS_FP_NDX, start_ndx:end_ndx] = fp
+            metrics_g[METRICS_TN_NDX, start_ndx:end_ndx] = tn
 
-    def diceLoss(self, pred, label, eps=1):
-        l_sum = label.sum(dim=[1, 2, 3])
-        p_sum = pred.sum(dim=[1, 2, 3])
-        corr = (pred * label).sum(dim=[1, 2, 3])
-        return 1 - (2 * corr + eps) / (p_sum + l_sum + eps)
+        return diceLoss_g.mean() + fnLoss_g.mean() * 8
+
+    def diceLoss(self, prediction_g, label_g, epsilon=1):
+        diceLabel_g = label_g.sum(dim=[1, 2, 3])
+        dicePrediction_g = prediction_g.sum(dim=[1, 2, 3])
+        diceCorrect_g = (prediction_g * label_g).sum(dim=[1, 2, 3])
+
+        diceRatio_g = (2 * diceCorrect_g + epsilon) / (
+            dicePrediction_g + diceLabel_g + epsilon
+        )
+
+        return 1 - diceRatio_g
 
     def logMetrics(self, epoch, mode, metrics_t):
         arr = metrics_t.detach().cpu().numpy()
