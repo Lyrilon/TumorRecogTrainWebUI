@@ -108,12 +108,12 @@ def start_inference():
         inference_process.wait()
 
     # 在实际应用中，您会从 request 中获取模型文件名
-    # data = request.get_json()
-    # model_file = data.get('model_file')
-    # cmd = ['python', 'train.py', '--eval', model_file]
+    data = request.get_json()
+    model_file = data.get('model_file')
+    cmd = ['python', 'segInference.py', '--eval', model_file]
 
     # 为了模拟，我们使用一个固定的命令
-    cmd = ["python", "train.py", "--eval", "dummy_model.pth"]
+    # cmd = ["python", "train.py", "--eval", "dummy_model.pth"]
     print(f"Starting inference with command: {' '.join(cmd)}")
     inference_process = subprocess.Popen(cmd)
     return jsonify({"status": "Inference started"})
