@@ -7,6 +7,7 @@ import eventlet
 # 使用 eventlet 协程库
 eventlet.monkey_patch()
 
+
 app = Flask(__name__)
 # 设置一个密钥，用于保护 session 和其他安全相关的事务
 app.config["SECRET_KEY"] = "your-secret-key!"
@@ -35,7 +36,8 @@ def start_training():
         training_process.wait()
 
     params = request.get_json()
-    cmd = ["python", "TumorTraining.py"]
+    print(f"the param is{params}")
+    cmd = ["python", "segmentTraining.py"]
     cmd.extend(["--num-workers", str(params.get("num_workers", 4))])
     cmd.extend(["--batch-size", str(params.get("batch_size", 32))])
     cmd.extend(["--epochs", str(params.get("epochs", 5))])
@@ -43,13 +45,14 @@ def start_training():
     for flag in [
         "balanced",
         "augmented",
-        "augment-flip",
-        "augment-offset",
-        "augment-scale",
-        "augment-rotate",
-        "augment-noise",
+        "augment_flip",
+        "augment_offset",
+        "augment_scale",
+        "augment_rotate",
+        "augment_noise",
     ]:
         if params.get(flag):
+            print(f"{flag}存在,加入")
             cmd.append(f"--{flag}")
 
     print(f"Starting training with command: {' '.join(cmd)}")
