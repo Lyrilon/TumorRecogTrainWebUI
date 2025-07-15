@@ -3,6 +3,7 @@ import time
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 import eventlet
+import os
 
 # 使用 eventlet 协程库
 eventlet.monkey_patch()
@@ -96,27 +97,62 @@ def training_done():
     return jsonify({"status": "done"})
 
 
-# --- 新增的推理功能路由 ---
+# 定义一个用于保存上传模型的文件夹
+UPLOAD_FOLDER = "uploaded_models"
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# 确保 Flask 应用知道上传文件夹
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+inference_process = None  # 全局变量来跟踪推理进程
 
 
 @app.route("/start_inference", methods=["POST"])
 def start_inference():
-    """开始推理的路由"""
+    """开始推理的路由，现在接收模型文件"""
     global inference_process
     if inference_process and inference_process.poll() is None:
+        print("Existing inference process found, terminating...")
         inference_process.terminate()
         inference_process.wait()
+        print("Existing inference process terminated.")
 
-    # 在实际应用中，您会从 request 中获取模型文件名
-    data = request.get_json()
-    model_file = data.get('model_file')
-    cmd = ['python', 'segInference.py', '--eval', model_file]
+    # 检查请求中是否有文件
+    if "model_file" not in request.files:
+        return jsonify({"status": "No model file part in the request"}), 400
 
-    # 为了模拟，我们使用一个固定的命令
-    # cmd = ["python", "train.py", "--eval", "dummy_model.pth"]
-    print(f"Starting inference with command: {' '.join(cmd)}")
-    inference_process = subprocess.Popen(cmd)
-    return jsonify({"status": "Inference started"})
+    model_file = request.files["model_file"]
+
+    # 如果文件名为空（用户没有选择文件）
+    if model_file.filename == "":
+        return jsonify({"status": "No selected model file"}), 400
+
+    if model_file:
+        filename = model_file.filename
+
+        # 构建文件保存路径
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+
+        # 保存文件
+        model_file.save(filepath)
+        print(f"Model file saved to: {filepath}")
+
+        # 构建推理命令，现在传递保存的文件路径
+        cmd = ["python", "segInference.py", "--eval", filepath]
+
+        print(f"Starting inference with command: {' '.join(cmd)}")
+        try:
+            inference_process = subprocess.Popen(cmd)
+            return jsonify({"status": "推理成功启动", "model_path": filepath})
+        except Exception as e:
+            print(f"Failed to start inference process: {e}")
+            return (
+                jsonify({"status": f"启动推理进程失败: {str(e)}"}),
+                500,
+            )
+
+    return jsonify({"status": "Unknown error during file upload"}), 500
 
 
 @app.route("/update_inference_image", methods=["POST"])
