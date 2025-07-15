@@ -57,3 +57,7 @@ Thumbs.db
 checkpoints/
 runs/
 logs/
+
+data
+data-unversioned
+uploaded_models
