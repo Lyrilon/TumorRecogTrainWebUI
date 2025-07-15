@@ -35,7 +35,7 @@ def start_training():
         training_process.wait()
 
     params = request.get_json()
-    cmd = ["python", "train.py"]
+    cmd = ["python", "TumorTraining.py"]
     cmd.extend(["--num-workers", str(params.get("num_workers", 4))])
     cmd.extend(["--batch-size", str(params.get("batch_size", 32))])
     cmd.extend(["--epochs", str(params.get("epochs", 5))])
